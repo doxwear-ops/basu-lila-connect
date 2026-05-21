@@ -8,45 +8,44 @@ import {
   registerProcessErrorHandlers,
   renderDeployErrorPage,
 } from './hostinger/errors.mjs';
-import { ensureProductionBuild } from './hostinger/ensure-build.mjs';
+import { ensureProductionBuild, getDistPaths } from './hostinger/ensure-build.mjs';
 
 registerProcessErrorHandlers();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const fallbackErrorPath = join(__dirname, 'public', 'hostinger-error.html');
 const port = Number(process.env.PORT) || 3000;
 const host = process.env.HOST || '0.0.0.0';
 
-let clientDir = join(__dirname, 'dist', 'client');
-let indexPath = join(clientDir, 'index.html');
+let { clientDir, indexPath } = getDistPaths(__dirname);
 
 const app = express();
 
 app.get('/health', (_req, res) => {
-  res.json({
-    ok: fs.existsSync(indexPath),
-    mode: 'static',
-    port,
-    cwd: process.cwd(),
-    clientDir,
+  res.status(200).json({
+    ok: true,
+    alive: true,
     hasIndex: fs.existsSync(indexPath),
     hasAssets: fs.existsSync(join(clientDir, 'assets')),
+    port,
+    host,
+    cwd: process.cwd(),
+    clientDir,
   });
 });
 
 app.use(express.static(clientDir));
 
-function sendSpaFallback(res, statusCode = 200) {
+function sendSpaFallback(res) {
   if (fs.existsSync(indexPath)) {
-    return res.status(statusCode).sendFile(indexPath);
+    return res.sendFile(indexPath);
   }
   return res
-    .status(503)
+    .status(200)
     .type('html')
     .send(
       renderDeployErrorPage(
         'サイトを準備中です',
-        `Missing: ${indexPath}`,
+        'デプロイ直後です。1分待ってから再読み込みしてください。',
       ),
     );
 }
@@ -62,23 +61,23 @@ app.use((err, _req, res, _next) => {
   }
 });
 
-async function start() {
-  const paths = await ensureProductionBuild();
-  clientDir = paths.clientDir;
-  indexPath = paths.indexPath;
+// Listen immediately so Hostinger does not return 503
+const server = app.listen(port, host, () => {
+  logStartup(`Listening on http://${host}:${port} (PORT=${process.env.PORT ?? 'default'})`);
+  logStartup(`Serving: ${clientDir}`);
 
-  const server = app.listen(port, host, () => {
-    logStartup(`Static server ready → http://${host}:${port}`);
-    logStartup(`Serving: ${clientDir}`);
-  });
+  ensureProductionBuild()
+    .then((paths) => {
+      clientDir = paths.clientDir;
+      indexPath = paths.indexPath;
+      logStartup(`Ready — index: ${fs.existsSync(indexPath)}`);
+    })
+    .catch((error) => {
+      logError('ensure-build', error);
+    });
+});
 
-  server.on('error', (error) => {
-    logError('listen', error);
-    process.exit(1);
-  });
-}
-
-start().catch((error) => {
-  logError('startup', error);
+server.on('error', (error) => {
+  logError('listen', error);
   process.exit(1);
 });

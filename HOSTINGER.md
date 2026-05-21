@@ -8,10 +8,12 @@
 | Branch | `main` |
 | Node.js | **22.x** |
 | Install | `npm install` |
-| Build | `npm run build` |
-| Start | `npm start` |
+| Build command | `npm run build` **(required)** |
+| Start command | `npm start` |
 | Entry file | `server.js` |
-| Output directory | *(leave empty)* |
+| Output directory | *(leave empty — do NOT use dist/client)* |
+
+**503 error?** Build did not run or app crashed before listen. Check Runtime logs. Never skip the build step.
 
 ## Health check
 
