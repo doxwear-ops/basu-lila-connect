@@ -1,17 +1,24 @@
 {
-  "name": "tanstack_start_ts",
+  "name": "basu-lila-connect",
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "main": "hostinger-server.js",
+  "engines": {
+    "node": ">=20 <=22"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "npm run build:local",
     "build:local": "vite build && node generate-index.mjs",
+    "postbuild": "node scripts/hostinger-verify-build.mjs",
     "deploy:gh": "npm run build:local && gh-pages -d dist/client",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
+    "prestart": "node scripts/hostinger-verify-build.mjs",
     "start": "node hostinger-static.mjs",
     "start:static": "node hostinger-static.mjs",
+    "start:ssr": "node hostinger-server.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

@@ -1,0 +1,10 @@
+{
+  "name": "basu-lila-connect",
+  "runtime": "nodejs",
+  "nodeVersion": "22",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "startCommand": "npm start",
+  "entryFile": "hostinger-server.js",
+  "notes": "Use these values in Hostinger hPanel → Node.js app settings. Do not set output directory to dist/client."
+}

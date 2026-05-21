@@ -2,15 +2,23 @@ import express from 'express';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import {
+  logStartup,
+  logError,
+  registerProcessErrorHandlers,
+  renderDeployErrorPage,
+} from './hostinger/errors.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+registerProcessErrorHandlers();
 
-const app = express();
-const port = Number(process.env.PORT) || 3000;
-const host = process.env.HOST || '0.0.0.0';
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const clientDir = join(__dirname, 'dist', 'client');
 const indexPath = join(clientDir, 'index.html');
+const fallbackErrorPath = join(__dirname, 'public', 'hostinger-error.html');
+const port = Number(process.env.PORT) || 3000;
+const host = process.env.HOST || '0.0.0.0';
+
+const app = express();
 
 let handler = null;
 let handlerLoadError = null;
@@ -22,25 +30,45 @@ async function loadHandler() {
     const mod = await import('./dist/server/index.js');
     handler = mod.default;
     if (!handler?.fetch) {
-      throw new Error('dist/server/index.js has no default.fetch');
+      throw new Error('dist/server/index.js default export has no fetch()');
     }
-    console.log('SSR handler loaded');
+    logStartup('SSR handler loaded');
     return handler;
   } catch (error) {
     handlerLoadError = error;
-    console.error('SSR handler failed to load (static-only mode):', error);
+    logError('SSR load', error);
     throw error;
   }
 }
 
-function sendIndex(res) {
+function sendSpaFallback(res, statusCode = 200) {
   if (fs.existsSync(indexPath)) {
-    return res.sendFile(indexPath);
+    return res.status(statusCode).sendFile(indexPath);
+  }
+  if (fs.existsSync(fallbackErrorPath)) {
+    return res.status(503).sendFile(fallbackErrorPath);
   }
   return res
-    .status(500)
-    .send('Build missing dist/client/index.html — run: npm run build');
+    .status(503)
+    .type('html')
+    .send(renderDeployErrorPage('サイトを準備中です', 'Build output missing'));
 }
+
+app.get('/health', async (_req, res) => {
+  let ssr = false;
+  try {
+    await loadHandler();
+    ssr = true;
+  } catch {
+    ssr = false;
+  }
+  res.json({
+    ok: true,
+    mode: ssr ? 'ssr' : 'static-fallback',
+    port,
+    hasIndex: fs.existsSync(indexPath),
+  });
+});
 
 app.use(
   '/assets',
@@ -68,8 +96,7 @@ app.all('*', async (req, res) => {
       init.duplex = 'half';
     }
 
-    const webReq = new Request(url.href, init);
-    const webRes = await ssr.fetch(webReq);
+    const webRes = await ssr.fetch(new Request(url.href, init));
 
     webRes.headers.forEach((value, key) => {
       res.setHeader(key, value);
@@ -86,17 +113,29 @@ app.all('*', async (req, res) => {
     }
     res.end();
   } catch (error) {
-    console.error('SSR request error:', error);
-    sendIndex(res);
+    logError('SSR request', error);
+    sendSpaFallback(res);
   }
 });
 
-app.listen(port, host, () => {
-  console.log(`Server listening on http://${host}:${port}`);
+app.use((err, _req, res, _next) => {
+  logError('express', err);
+  if (!res.headersSent) {
+    sendSpaFallback(res, 500);
+  }
+});
+
+const server = app.listen(port, host, () => {
+  logStartup(`SSR server ready → http://${host}:${port}`);
   if (!fs.existsSync(indexPath)) {
-    console.warn('Warning: dist/client/index.html not found — run npm run build');
+    logStartup('WARNING: dist/client/index.html missing');
   }
   loadHandler().catch(() => {
-    console.warn('Running in static fallback mode until SSR loads');
+    logStartup('SSR unavailable — using static SPA fallback');
   });
+});
+
+server.on('error', (error) => {
+  logError('listen', error);
+  process.exit(1);
 });

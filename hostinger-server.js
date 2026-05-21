@@ -1,2 +1,5 @@
-// Hostinger often looks for hostinger-server.js — re-use the .mjs entry
-import './hostinger-server.mjs';
+/**
+ * Hostinger entry file (Express / Node.js deploy).
+ * Starts the static production server — most reliable on Hostinger.
+ */
+import './hostinger-static.mjs';
