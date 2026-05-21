@@ -8,13 +8,17 @@ import {
   registerProcessErrorHandlers,
   renderDeployErrorPage,
 } from './hostinger/errors.mjs';
+import { resolveClientDir } from './hostinger/paths.mjs';
 
 registerProcessErrorHandlers();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const clientDir = join(__dirname, 'dist', 'client');
-const indexPath = join(clientDir, 'index.html');
 const fallbackErrorPath = join(__dirname, 'public', 'hostinger-error.html');
+
+function getStaticFallback() {
+  const { clientDir, indexPath } = resolveClientDir(__dirname);
+  return { clientDir, indexPath };
+}
 const port = Number(process.env.PORT) || 3000;
 const host = process.env.HOST || '0.0.0.0';
 
@@ -42,6 +46,7 @@ async function loadHandler() {
 }
 
 function sendSpaFallback(res, statusCode = 200) {
+  const { indexPath } = getStaticFallback();
   if (fs.existsSync(indexPath)) {
     return res.status(statusCode).sendFile(indexPath);
   }
@@ -70,6 +75,8 @@ app.get('/health', async (_req, res) => {
   });
 });
 
+const { clientDir } = getStaticFallback();
+
 app.use(
   '/assets',
   express.static(join(clientDir, 'assets'), {
@@ -78,7 +85,7 @@ app.use(
   }),
 );
 
-app.use(express.static(clientDir, { index: false }));
+app.use(express.static(getStaticFallback().clientDir, { index: false }));
 
 app.all('*', async (req, res) => {
   try {
@@ -127,9 +134,7 @@ app.use((err, _req, res, _next) => {
 
 const server = app.listen(port, host, () => {
   logStartup(`SSR server ready → http://${host}:${port}`);
-  if (!fs.existsSync(indexPath)) {
-    logStartup('WARNING: dist/client/index.html missing');
-  }
+  logStartup(`Assets: ${getStaticFallback().clientDir}`);
   loadHandler().catch(() => {
     logStartup('SSR unavailable — using static SPA fallback');
   });

@@ -1,4 +1,5 @@
 /**
  * Hostinger entry file (hPanel → Entry file: server.js)
+ * Uses SSR so the full site HTML is rendered (fixes blank white page).
  */
-import './hostinger-static.mjs';
+import './hostinger-server.mjs';

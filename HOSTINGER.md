@@ -9,7 +9,7 @@
 | Node.js | **22.x** |
 | Install | `npm install` |
 | Build command | `npm run build` **(required)** |
-| Start command | `npm start` |
+| Start command | `npm start` (runs **SSR** server — required for TanStack) |
 | Entry file | `server.js` |
 | Output directory | *(leave empty — do NOT use dist/client)* |
 
@@ -21,8 +21,8 @@ After deploy: `https://your-domain.com/health`
 
 ## Scripts
 
-- `npm start` — static Node server (recommended)
-- `npm run start:ssr` — SSR server with static fallback
+- `npm start` — **SSR** server (required — static-only shows a blank page)
+- `npm run start:static` — static fallback only (not for production)
 
 ## Logs
 
