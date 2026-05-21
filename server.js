@@ -1,5 +1,4 @@
 /**
- * Hostinger default entry (hPanel → Entry file: server.js)
- * Starts the production static Node server after npm run build.
+ * Hostinger entry file (hPanel → Entry file: server.js)
  */
 import './hostinger-static.mjs';

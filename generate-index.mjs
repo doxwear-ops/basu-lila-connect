@@ -1,26 +1,34 @@
 import { writeFileSync, readdirSync, statSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
-async function generate() {
-  console.log('Applying "Fake Server State" to fix Invariant error...');
+const defaultRoot = join(dirname(fileURLToPath(import.meta.url)));
 
-  const distClientDir = join(process.cwd(), 'dist', 'client');
+export async function generateIndex(projectRoot = defaultRoot) {
+  console.log('[generate-index] Creating dist/client/index.html...');
+
+  const distClientDir = join(projectRoot, 'dist', 'client');
   const assetsDir = join(distClientDir, 'assets');
-  
+
   if (!existsSync(assetsDir)) {
-    console.error('❌ dist/client/assets folder not found.');
-    return;
+    console.error(`[generate-index] Missing: ${assetsDir}`);
+    return false;
   }
 
   const files = readdirSync(assetsDir);
   const jsFiles = files
-    .filter(f => f.startsWith('index-') && f.endsWith('.js'))
-    .map(f => ({ name: f, size: statSync(join(assetsDir, f)).size }))
+    .filter((f) => f.startsWith('index-') && f.endsWith('.js'))
+    .map((f) => ({ name: f, size: statSync(join(assetsDir, f)).size }))
     .sort((a, b) => b.size - a.size);
-    
+
   const mainJs = jsFiles[0]?.name;
-  const mainCss = files.find(f => f.startsWith('styles-') && f.endsWith('.css'));
-  const secondCss = files.find(f => f.startsWith('index-') && f.endsWith('.css'));
+  if (!mainJs) {
+    console.error('[generate-index] No index-*.js bundle in assets');
+    return false;
+  }
+
+  const mainCss = files.find((f) => f.startsWith('styles-') && f.endsWith('.css'));
+  const secondCss = files.find((f) => f.startsWith('index-') && f.endsWith('.css'));
 
   const html = `<!DOCTYPE html>
 <html lang="ja">
@@ -38,8 +46,6 @@ async function generate() {
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Noto+Serif+JP:wght@400;500;600&display=swap" rel="stylesheet">
     
     <script>
-      // FIX FOR "INVARIANT FAILED": Provide full mock state for TanStack Start
-      // This tricks the client-side hydration into thinking the server already rendered the page.
       window.__TSR_DEHYDRATED__ = { 
         data: [], 
         manifest: { 
@@ -65,38 +71,17 @@ async function generate() {
           lastMatchId: ""
         }]
       };
-
-      // ERROR CATCHER: If the website fails, it will tell us why on the screen
-      window.onerror = function(msg, url, line, col, error) {
-        var div = document.createElement('div');
-        div.style.padding = '20px';
-        div.style.color = 'red';
-        div.style.background = '#fff';
-        div.style.position = 'fixed';
-        div.style.top = '0';
-        div.style.left = '0';
-        div.style.zIndex = '9999';
-        div.innerHTML = '<b>Website Error:</b> ' + msg + '<br><small>' + url + ' L:' + line + '</small>';
-        document.body.appendChild(div);
-      };
     </script>
 </head>
 <body style="margin: 0; padding: 0; background: white;">
-    <div id="root">
-        <div id="loading-indicator" style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; color: #666; background: white;">
-            <div style="text-align: center;">
-                <p>Loading Website...</p>
-                <small>If this stays white, please check your internet connection.</small>
-            </div>
-        </div>
-    </div>
+    <div id="root"></div>
     <script type="module" src="./assets/${mainJs}"></script>
 </body>
 </html>`;
 
   writeFileSync(join(distClientDir, 'index.html'), html);
   writeFileSync(join(distClientDir, '404.html'), html);
-  
+
   const htaccess = `
 RewriteEngine On
 RewriteBase /
@@ -107,7 +92,16 @@ RewriteRule . /index.html [L]
 `;
   writeFileSync(join(distClientDir, '.htaccess'), htaccess);
 
-  console.log('✅ Final fix applied to index.html');
+  console.log('[generate-index] OK → dist/client/index.html');
+  return true;
 }
 
-generate();
+const isMain =
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
+  generateIndex().then((ok) => {
+    if (!ok) process.exit(1);
+  });
+}
