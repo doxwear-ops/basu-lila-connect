@@ -5,6 +5,6 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "startCommand": "npm start",
-  "entryFile": "hostinger-server.js",
+  "entryFile": "server.js",
   "notes": "Use these values in Hostinger hPanel → Node.js app settings. Do not set output directory to dist/client."
 }

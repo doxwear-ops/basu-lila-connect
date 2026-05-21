@@ -10,7 +10,7 @@
 | Install | `npm install` |
 | Build | `npm run build` |
 | Start | `npm start` |
-| Entry file | `hostinger-server.js` or `index.js` |
+| Entry file | `server.js` |
 | Output directory | *(leave empty)* |
 
 ## Health check
