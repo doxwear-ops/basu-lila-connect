@@ -1,35 +1,33 @@
 import express from 'express';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { join } from 'path';
 import {
   logStartup,
   logError,
   registerProcessErrorHandlers,
   renderDeployErrorPage,
 } from './hostinger/errors.mjs';
-import { ensureProductionBuild, getDistPaths } from './hostinger/ensure-build.mjs';
+import { ensureProductionBuild } from './hostinger/ensure-build.mjs';
+import { resolveClientDir } from './hostinger/paths.mjs';
 
 registerProcessErrorHandlers();
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT) || 3000;
 const host = process.env.HOST || '0.0.0.0';
 
-let { clientDir, indexPath } = getDistPaths(__dirname);
+let { clientDir, indexPath } = resolveClientDir();
 
 const app = express();
 
 app.get('/health', (_req, res) => {
   res.status(200).json({
-    ok: true,
+    ok: fs.existsSync(indexPath),
     alive: true,
     hasIndex: fs.existsSync(indexPath),
     hasAssets: fs.existsSync(join(clientDir, 'assets')),
     port,
-    host,
-    cwd: process.cwd(),
     clientDir,
+    source: resolveClientDir().source,
   });
 });
 
@@ -45,7 +43,7 @@ function sendSpaFallback(res) {
     .send(
       renderDeployErrorPage(
         'サイトを準備中です',
-        'デプロイ直後です。1分待ってから再読み込みしてください。',
+        'www フォルダがありません。開発者に npm run build を実行して push してください。',
       ),
     );
 }
@@ -61,20 +59,17 @@ app.use((err, _req, res, _next) => {
   }
 });
 
-// Listen immediately so Hostinger does not return 503
 const server = app.listen(port, host, () => {
-  logStartup(`Listening on http://${host}:${port} (PORT=${process.env.PORT ?? 'default'})`);
+  logStartup(`Listening on http://${host}:${port}`);
   logStartup(`Serving: ${clientDir}`);
 
   ensureProductionBuild()
     .then((paths) => {
       clientDir = paths.clientDir;
       indexPath = paths.indexPath;
-      logStartup(`Ready — index: ${fs.existsSync(indexPath)}`);
+      logStartup(`Ready — index: ${fs.existsSync(indexPath)} (${paths.source})`);
     })
-    .catch((error) => {
-      logError('ensure-build', error);
-    });
+    .catch((error) => logError('ensure-build', error));
 });
 
 server.on('error', (error) => {

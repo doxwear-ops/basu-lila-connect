@@ -1,27 +1,13 @@
 import { existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { logStartup, logError } from './errors.mjs';
+import { resolveClientDir } from './paths.mjs';
 
-const projectRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-export function getDistPaths(root = projectRoot) {
-  return {
-    root,
-    clientDir: join(root, 'dist', 'client'),
-    indexPath: join(root, 'dist', 'client', 'index.html'),
-    assetsDir: join(root, 'dist', 'client', 'assets'),
-  };
-}
-
-/**
- * Fast recovery only — never runs npm run build here (too slow; Hostinger returns 503).
- */
 export async function ensureProductionBuild() {
-  const paths = getDistPaths();
+  let paths = resolveClientDir();
 
   logStartup(`root: ${paths.root}`);
   logStartup(`cwd: ${process.cwd()}`);
+  logStartup(`source: ${paths.source}`);
   logStartup(`index: ${existsSync(paths.indexPath)}`);
   logStartup(`assets: ${existsSync(paths.assetsDir)}`);
 
@@ -33,6 +19,7 @@ export async function ensureProductionBuild() {
     try {
       const { generateIndex } = await import('../generate-index.mjs');
       await generateIndex(paths.root);
+      paths = resolveClientDir();
       if (existsSync(paths.indexPath)) {
         logStartup('Created index.html from assets');
         return paths;
@@ -42,8 +29,6 @@ export async function ensureProductionBuild() {
     }
   }
 
-  logStartup(
-    'WARN: dist/client not ready — set Hostinger build command to: npm run build',
-  );
+  logStartup('WARN: No site files in www/ or dist/client — run npm run build locally and push');
   return paths;
 }

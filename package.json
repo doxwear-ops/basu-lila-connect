@@ -11,7 +11,7 @@
     "dev": "vite dev",
     "build": "npm run build:local",
     "build:local": "vite build && node generate-index.mjs",
-    "postbuild": "node scripts/hostinger-verify-build.mjs",
+    "postbuild": "node scripts/hostinger-verify-build.mjs && node scripts/copy-www.mjs",
     "deploy:gh": "npm run build:local && gh-pages -d dist/client",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
