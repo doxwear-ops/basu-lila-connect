@@ -10,7 +10,8 @@
     "deploy:gh": "npm run build:local && gh-pages -d dist/client",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
-    "start": "node hostinger-server.mjs",
+    "start": "node hostinger-static.mjs",
+    "start:static": "node hostinger-static.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
